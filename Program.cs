@@ -167,20 +167,26 @@ public class LayerManager : IDisposable
 
     private void ApplyLayer(Bitmap result, ImageLayer layer)
     {
-        int width = Math.Min(result.Width, layer.Image.Width);
-        int height = Math.Min(result.Height, layer.Image.Height);
+        int width = result.Width;
+        int height = result.Height;
 
         // Генерируем маску, если нужно
         Bitmap? mask = layer.MaskType != MaskType.None 
             ? GenerateMask(width, height, layer.MaskType) 
             : null;
 
+        int lWidth = layer.Image.Width;
+        int lHeight = layer.Image.Height;
+
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
             {
                 Color baseColor = result.GetPixel(x, y);
-                Color layerColor = layer.Image.GetPixel(x, y);
+
+                int lx = x * lWidth / width;
+                int ly = y * lHeight / height;
+                Color layerColor = layer.Image.GetPixel(lx, ly);
 
                 double effectiveOpacity = layer.Opacity;
                 if (mask != null)
