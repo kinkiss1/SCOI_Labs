@@ -18,6 +18,7 @@ public class MainForm : Form
     private Button _removeButton = null!;
     private Button _moveUpButton = null!;
     private Button _moveDownButton = null!;
+    private Button _gradationButton = null!;
     private Button _saveButton = null!;
 
     public MainForm()
@@ -190,11 +191,21 @@ public class MainForm : Form
         settingsGroup.Controls.Add(_opacityLabel);
         settingsGroup.Controls.Add(_opacityTracker);
 
+        _gradationButton = new Button
+        {
+            Text = "Градационные преобразования",
+            Location = new Point(15, 645),
+            Size = new Size(320, 35),
+            Font = new Font("Segoe UI", 10),
+            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+        };
+        _gradationButton.Click += GradationButton_Click;
+
         //сейв
         _saveButton = new Button
         {
             Text = "Сохранить",
-            Location = new Point(15, 645),
+            Location = new Point(15, 690),
             Size = new Size(320, 45),
             Font = new Font("Segoe UI", 11),
             Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
@@ -209,6 +220,7 @@ public class MainForm : Form
         rightPanel.Controls.Add(_moveUpButton);
         rightPanel.Controls.Add(_moveDownButton);
         rightPanel.Controls.Add(settingsGroup);
+        rightPanel.Controls.Add(_gradationButton);
         rightPanel.Controls.Add(_saveButton);
 
         //добавляем панели на форму
@@ -315,6 +327,23 @@ public class MainForm : Form
             var layer = _layerManager.Layers[_layersList.SelectedIndex];
             layer.Opacity = _opacityTracker.Value / 100.0;
             UpdatePreview();
+        }
+    }
+
+    private void GradationButton_Click(object? sender, EventArgs e)
+    {
+        if (_layersList.SelectedIndex >= 0 && _layersList.SelectedIndex < _layerManager.Layers.Count)
+        {
+            var layer = _layerManager.Layers[_layersList.SelectedIndex];
+            using var gradForm = new GradationForm(layer.Image);
+            if (gradForm.ShowDialog() == DialogResult.OK)
+            {
+                var newImage = (Bitmap)gradForm.ResultImage.Clone();
+                var oldImage = layer.Image;
+                layer.Image = newImage;
+                oldImage?.Dispose();
+                UpdatePreview();
+            }
         }
     }
 
