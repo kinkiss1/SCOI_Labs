@@ -16,7 +16,7 @@ public class GradationForm : Form
     private PictureBox _pbHistOriginal;
     private PictureBox _pbHistPreview;
     
-    // Panel for the interactive chart:
+
     private PictureBox _pbGraph;
     
     private List<PointF> _controlPoints = new();
@@ -100,7 +100,6 @@ public class GradationForm : Form
         var g = e.Graphics;
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-        // Draw grid
         using Pen gridPen = new Pen(Color.LightGray);
         for(int i=0; i<=4; i++)
         {
@@ -110,7 +109,6 @@ public class GradationForm : Form
             g.DrawLine(gridPen, 0, y, _pbGraph.Width, y);
         }
 
-        // Draw curve
         using Pen curvePen = new Pen(Color.Blue, 2f);
         List<PointF> screenPts = _controlPoints.Select(p => ToScreen(p)).ToList();
         for (int i = 0; i < screenPts.Count - 1; i++)
@@ -118,7 +116,6 @@ public class GradationForm : Form
             g.DrawLine(curvePen, screenPts[i], screenPts[i + 1]);
         }
 
-        // Draw control points
         foreach (var pt in screenPts)
         {
             g.FillEllipse(Brushes.Red, pt.X - 4, pt.Y - 4, 8, 8);
@@ -138,8 +135,7 @@ public class GradationForm : Form
         if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Right) return;
 
         PointF worldPt = ToWorld(e.Location);
-        
-        // Find if we clicked on an existing point
+
         for (int i = 0; i < _controlPoints.Count; i++)
         {
             PointF scr = ToScreen(_controlPoints[i]);

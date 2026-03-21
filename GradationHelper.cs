@@ -41,10 +41,10 @@ public static class GradationHelper
 
         for (int i = 0; i < bytes; i += 4)
         {
-            dstValues[i] = lut[srcValues[i]];         // B
-            dstValues[i + 1] = lut[srcValues[i + 1]]; // G
-            dstValues[i + 2] = lut[srcValues[i + 2]]; // R
-            dstValues[i + 3] = srcValues[i + 3];      // A
+            dstValues[i] = lut[srcValues[i]];
+            dstValues[i + 1] = lut[srcValues[i + 1]];
+            dstValues[i + 2] = lut[srcValues[i + 2]];
+            dstValues[i + 3] = srcValues[i + 3];
         }
 
         Marshal.Copy(dstValues, 0, dstData.Scan0, bytes);
@@ -68,7 +68,6 @@ public static class GradationHelper
         double k = (double)(height - 1) / max;
         using Pen pen = new Pen(Color.FromArgb(100, 100, 100));
 
-        // Нормируем X координаты для 256 значений
         for (int i = 0; i < 256; i++)
         {
             int x = (int)(i * (width - 1) / 255.0);
