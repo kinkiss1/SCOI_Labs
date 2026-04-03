@@ -107,6 +107,12 @@
             Click="GradationButton_Click" />
 
         <Button
+            x:Name="BinarizationButton"
+            Height="40"
+            Content="Бинаризация"
+            Click="BinarizationButton_Click" />
+
+        <Button
             x:Name="SaveButton"
             Height="48"
             Content="Сохранить результат"
