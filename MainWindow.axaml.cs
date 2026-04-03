@@ -137,22 +137,25 @@ public partial class MainWindow : Window
         }
 
         List<string> errors = new();
-        foreach (IStorageFile file in files)
+        using (_layerManager.BeginBatchUpdate())
         {
-            string? localPath = file.TryGetLocalPath();
-            if (string.IsNullOrWhiteSpace(localPath))
+            foreach (IStorageFile file in files)
             {
-                errors.Add($"{file.Name}: нельзя получить локальный путь.");
-                continue;
-            }
+                string? localPath = file.TryGetLocalPath();
+                if (string.IsNullOrWhiteSpace(localPath))
+                {
+                    errors.Add($"{file.Name}: нельзя получить локальный путь.");
+                    continue;
+                }
 
-            try
-            {
-                _layerManager.AddLayer(localPath);
-            }
-            catch (Exception ex)
-            {
-                errors.Add($"{Path.GetFileName(localPath)}: {ex.Message}");
+                try
+                {
+                    _layerManager.AddLayer(localPath);
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"{Path.GetFileName(localPath)}: {ex.Message}");
+                }
             }
         }
 

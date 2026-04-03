@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 
 namespace SCOI_Lab_1;
 
@@ -40,8 +41,16 @@ public sealed class ImageLayer : IDisposable
 public sealed class LayerManager : IDisposable
 {
     public List<ImageLayer> Layers { get; } = new();
+    private int _batchDepth;
+    private bool _hasPendingChange;
 
     public event Action? LayersChanged;
+
+    public IDisposable BeginBatchUpdate()
+    {
+        _batchDepth++;
+        return new BatchUpdateScope(this);
+    }
 
     public void AddLayer(string filePath, BlendMode blendMode = BlendMode.None, double opacity = 1.0)
     {
@@ -58,7 +67,7 @@ public sealed class LayerManager : IDisposable
 
         Layers[index].Dispose();
         Layers.RemoveAt(index);
-        LayersChanged?.Invoke();
+        NotifyLayersChanged();
     }
 
     public void MoveLayerTowardTop(int index)
@@ -69,7 +78,7 @@ public sealed class LayerManager : IDisposable
         }
 
         (Layers[index], Layers[index + 1]) = (Layers[index + 1], Layers[index]);
-        LayersChanged?.Invoke();
+        NotifyLayersChanged();
     }
 
     public void MoveLayerTowardBottom(int index)
@@ -80,7 +89,7 @@ public sealed class LayerManager : IDisposable
         }
 
         (Layers[index], Layers[index - 1]) = (Layers[index - 1], Layers[index]);
-        LayersChanged?.Invoke();
+        NotifyLayersChanged();
     }
 
     public Bitmap? CompositeLayers()
@@ -93,15 +102,23 @@ public sealed class LayerManager : IDisposable
         int maxWidth = Layers.Max(layer => layer.Image.Width);
         int maxHeight = Layers.Max(layer => layer.Image.Height);
         Bitmap result = new(maxWidth, maxHeight, PixelFormat.Format32bppArgb);
+        Rectangle bounds = new(0, 0, maxWidth, maxHeight);
+        BitmapData resultData = result.LockBits(bounds, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+        byte[] resultBytes = new byte[Math.Abs(resultData.Stride) * maxHeight];
+        Array.Fill(resultBytes, (byte)255);
 
-        using (Graphics graphics = Graphics.FromImage(result))
+        try
         {
-            graphics.Clear(Color.White);
+            foreach (ImageLayer layer in Layers)
+            {
+                ApplyLayer(resultBytes, resultData.Stride, maxWidth, maxHeight, layer);
+            }
+
+            Marshal.Copy(resultBytes, 0, resultData.Scan0, resultBytes.Length);
         }
-
-        foreach (ImageLayer layer in Layers)
+        finally
         {
-            ApplyLayer(result, layer);
+            result.UnlockBits(resultData);
         }
 
         return result;
@@ -130,7 +147,7 @@ public sealed class LayerManager : IDisposable
                 MaskType = MaskType.None
             });
 
-            LayersChanged?.Invoke();
+            NotifyLayersChanged();
         }
         catch
         {
@@ -139,118 +156,275 @@ public sealed class LayerManager : IDisposable
         }
     }
 
-    private static void ApplyLayer(Bitmap result, ImageLayer layer)
+    private void NotifyLayersChanged()
     {
-        int width = result.Width;
-        int height = result.Height;
-        Bitmap? mask = layer.MaskType == MaskType.None ? null : GenerateMask(width, height, layer.MaskType);
-        int layerWidth = layer.Image.Width;
-        int layerHeight = layer.Image.Height;
-
-        for (int y = 0; y < height; y++)
+        if (_batchDepth > 0)
         {
-            for (int x = 0; x < width; x++)
-            {
-                Color baseColor = result.GetPixel(x, y);
-                int layerX = x * layerWidth / width;
-                int layerY = y * layerHeight / height;
-                Color layerColor = layer.Image.GetPixel(layerX, layerY);
-
-                double effectiveOpacity = layer.Opacity;
-                if (mask is not null)
-                {
-                    double maskAlpha = mask.GetPixel(x, y).R / 255.0;
-                    effectiveOpacity *= maskAlpha;
-                    if (effectiveOpacity < 0.001)
-                    {
-                        continue;
-                    }
-                }
-
-                Color blended = BlendPixels(baseColor, layerColor, layer.BlendMode);
-                result.SetPixel(x, y, ApplyOpacity(baseColor, blended, effectiveOpacity));
-            }
+            _hasPendingChange = true;
+            return;
         }
 
-        mask?.Dispose();
+        LayersChanged?.Invoke();
     }
 
-    private static Bitmap GenerateMask(int width, int height, MaskType maskType)
+    private void EndBatchUpdate()
     {
-        Bitmap mask = new(width, height, PixelFormat.Format32bppArgb);
+        if (_batchDepth == 0)
+        {
+            return;
+        }
 
-        using Graphics graphics = Graphics.FromImage(mask);
-        using Brush brush = new SolidBrush(Color.White);
-        graphics.Clear(Color.Black);
+        _batchDepth--;
+        if (_batchDepth == 0 && _hasPendingChange)
+        {
+            _hasPendingChange = false;
+            LayersChanged?.Invoke();
+        }
+    }
+
+    private static void ApplyLayer(byte[] resultBytes, int resultStride, int width, int height, ImageLayer layer)
+    {
+        Rectangle sourceBounds = new(0, 0, layer.Image.Width, layer.Image.Height);
+        BitmapData sourceData = layer.Image.LockBits(sourceBounds, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+
+        try
+        {
+            int sourceStride = Math.Abs(sourceData.Stride);
+            byte[] sourceBytes = new byte[sourceStride * layer.Image.Height];
+            Marshal.Copy(sourceData.Scan0, sourceBytes, 0, sourceBytes.Length);
+
+            int[] xMap = CreateCoordinateMap(width, layer.Image.Width);
+            int[] yMap = CreateCoordinateMap(height, layer.Image.Height);
+            byte[]? maskAlpha = GenerateMaskAlpha(width, height, layer.MaskType);
+            int opacity = (int)Math.Round(Math.Clamp(layer.Opacity, 0.0, 1.0) * 255.0);
+
+            for (int y = 0; y < height; y++)
+            {
+                int resultRow = y * resultStride;
+                int sourceRow = yMap[y] * sourceStride;
+                int maskRow = y * width;
+
+                for (int x = 0; x < width; x++)
+                {
+                    int effectiveOpacity = opacity;
+                    if (maskAlpha is not null)
+                    {
+                        effectiveOpacity = (effectiveOpacity * maskAlpha[maskRow + x] + 127) / 255;
+                        if (effectiveOpacity == 0)
+                        {
+                            continue;
+                        }
+                    }
+
+                    int resultIndex = resultRow + (x * 4);
+                    int sourceIndex = sourceRow + (xMap[x] * 4);
+
+                    int baseBlue = resultBytes[resultIndex];
+                    int baseGreen = resultBytes[resultIndex + 1];
+                    int baseRed = resultBytes[resultIndex + 2];
+                    int topBlue = sourceBytes[sourceIndex];
+                    int topGreen = sourceBytes[sourceIndex + 1];
+                    int topRed = sourceBytes[sourceIndex + 2];
+
+                    BlendPixel(baseBlue, baseGreen, baseRed, topBlue, topGreen, topRed, layer.BlendMode,
+                        out int blendedBlue, out int blendedGreen, out int blendedRed);
+
+                    resultBytes[resultIndex] = ApplyOpacity(baseBlue, blendedBlue, effectiveOpacity);
+                    resultBytes[resultIndex + 1] = ApplyOpacity(baseGreen, blendedGreen, effectiveOpacity);
+                    resultBytes[resultIndex + 2] = ApplyOpacity(baseRed, blendedRed, effectiveOpacity);
+                    resultBytes[resultIndex + 3] = 255;
+                }
+            }
+        }
+        finally
+        {
+            layer.Image.UnlockBits(sourceData);
+        }
+    }
+
+    private static int[] CreateCoordinateMap(int targetSize, int sourceSize)
+    {
+        int[] map = new int[targetSize];
+        for (int i = 0; i < targetSize; i++)
+        {
+            map[i] = i * sourceSize / targetSize;
+        }
+
+        return map;
+    }
+
+    private static byte[]? GenerateMaskAlpha(int width, int height, MaskType maskType)
+    {
+        if (maskType == MaskType.None)
+        {
+            return null;
+        }
+
+        byte[] mask = new byte[width * height];
 
         switch (maskType)
         {
             case MaskType.Circle:
-                int diameter = Math.Min(width, height);
-                graphics.FillEllipse(brush, (width - diameter) / 2, (height - diameter) / 2, diameter, diameter);
+                FillCircleMask(mask, width, height);
                 break;
 
             case MaskType.Square:
-                int size = Math.Min(width, height);
-                graphics.FillRectangle(brush, (width - size) / 2, (height - size) / 2, size, size);
+                FillSquareMask(mask, width, height);
                 break;
 
             case MaskType.Rectangle:
-                int marginX = width / 10;
-                int marginY = height / 10;
-                graphics.FillRectangle(brush, marginX, marginY, width - (marginX * 2), height - (marginY * 2));
+                FillRectangleMask(mask, width, height);
                 break;
         }
 
         return mask;
     }
 
-    private static Color BlendPixels(Color baseColor, Color topColor, BlendMode mode)
+    private static void FillCircleMask(byte[] mask, int width, int height)
     {
-        return mode switch
+        double diameter = Math.Min(width, height);
+        double radius = diameter / 2d;
+        double centerX = width / 2d;
+        double centerY = height / 2d;
+        double radiusSquared = radius * radius;
+
+        for (int y = 0; y < height; y++)
         {
-            BlendMode.None => topColor,
-            BlendMode.Sum => Color.FromArgb(
-                Math.Min(baseColor.R + topColor.R, 255),
-                Math.Min(baseColor.G + topColor.G, 255),
-                Math.Min(baseColor.B + topColor.B, 255)),
-            BlendMode.Difference => Color.FromArgb(
-                Math.Abs(baseColor.R - topColor.R),
-                Math.Abs(baseColor.G - topColor.G),
-                Math.Abs(baseColor.B - topColor.B)),
-            BlendMode.Multiply => Color.FromArgb(
-                (baseColor.R * topColor.R) / 255,
-                (baseColor.G * topColor.G) / 255,
-                (baseColor.B * topColor.B) / 255),
-            BlendMode.Screen => Color.FromArgb(
-                255 - (((255 - baseColor.R) * (255 - topColor.R)) / 255),
-                255 - (((255 - baseColor.G) * (255 - topColor.G)) / 255),
-                255 - (((255 - baseColor.B) * (255 - topColor.B)) / 255)),
-            BlendMode.Average => Color.FromArgb(
-                (baseColor.R + topColor.R) / 2,
-                (baseColor.G + topColor.G) / 2,
-                (baseColor.B + topColor.B) / 2),
-            BlendMode.Min => Color.FromArgb(
-                Math.Min(baseColor.R, topColor.R),
-                Math.Min(baseColor.G, topColor.G),
-                Math.Min(baseColor.B, topColor.B)),
-            BlendMode.Max => Color.FromArgb(
-                Math.Max(baseColor.R, topColor.R),
-                Math.Max(baseColor.G, topColor.G),
-                Math.Max(baseColor.B, topColor.B)),
-            _ => topColor
-        };
+            double dy = (y + 0.5d) - centerY;
+            int row = y * width;
+
+            for (int x = 0; x < width; x++)
+            {
+                double dx = (x + 0.5d) - centerX;
+                if ((dx * dx) + (dy * dy) <= radiusSquared)
+                {
+                    mask[row + x] = 255;
+                }
+            }
+        }
     }
 
-    private static Color ApplyOpacity(Color baseColor, Color blendedColor, double opacity)
+    private static void FillSquareMask(byte[] mask, int width, int height)
     {
-        int red = (int)(baseColor.R * (1 - opacity) + blendedColor.R * opacity);
-        int green = (int)(baseColor.G * (1 - opacity) + blendedColor.G * opacity);
-        int blue = (int)(baseColor.B * (1 - opacity) + blendedColor.B * opacity);
+        int size = Math.Min(width, height);
+        int startX = (width - size) / 2;
+        int startY = (height - size) / 2;
+        int endX = startX + size;
+        int endY = startY + size;
 
-        return Color.FromArgb(
-            Math.Clamp(red, 0, 255),
-            Math.Clamp(green, 0, 255),
-            Math.Clamp(blue, 0, 255));
+        for (int y = startY; y < endY; y++)
+        {
+            int row = y * width;
+            for (int x = startX; x < endX; x++)
+            {
+                mask[row + x] = 255;
+            }
+        }
+    }
+
+    private static void FillRectangleMask(byte[] mask, int width, int height)
+    {
+        int marginX = width / 10;
+        int marginY = height / 10;
+
+        for (int y = marginY; y < height - marginY; y++)
+        {
+            int row = y * width;
+            for (int x = marginX; x < width - marginX; x++)
+            {
+                mask[row + x] = 255;
+            }
+        }
+    }
+
+    private static void BlendPixel(
+        int baseBlue,
+        int baseGreen,
+        int baseRed,
+        int topBlue,
+        int topGreen,
+        int topRed,
+        BlendMode mode,
+        out int blendedBlue,
+        out int blendedGreen,
+        out int blendedRed)
+    {
+        switch (mode)
+        {
+            case BlendMode.None:
+                blendedBlue = topBlue;
+                blendedGreen = topGreen;
+                blendedRed = topRed;
+                break;
+
+            case BlendMode.Sum:
+                blendedBlue = Math.Min(baseBlue + topBlue, 255);
+                blendedGreen = Math.Min(baseGreen + topGreen, 255);
+                blendedRed = Math.Min(baseRed + topRed, 255);
+                break;
+
+            case BlendMode.Difference:
+                blendedBlue = Math.Abs(baseBlue - topBlue);
+                blendedGreen = Math.Abs(baseGreen - topGreen);
+                blendedRed = Math.Abs(baseRed - topRed);
+                break;
+
+            case BlendMode.Multiply:
+                blendedBlue = (baseBlue * topBlue) / 255;
+                blendedGreen = (baseGreen * topGreen) / 255;
+                blendedRed = (baseRed * topRed) / 255;
+                break;
+
+            case BlendMode.Screen:
+                blendedBlue = 255 - (((255 - baseBlue) * (255 - topBlue)) / 255);
+                blendedGreen = 255 - (((255 - baseGreen) * (255 - topGreen)) / 255);
+                blendedRed = 255 - (((255 - baseRed) * (255 - topRed)) / 255);
+                break;
+
+            case BlendMode.Average:
+                blendedBlue = (baseBlue + topBlue) / 2;
+                blendedGreen = (baseGreen + topGreen) / 2;
+                blendedRed = (baseRed + topRed) / 2;
+                break;
+
+            case BlendMode.Min:
+                blendedBlue = Math.Min(baseBlue, topBlue);
+                blendedGreen = Math.Min(baseGreen, topGreen);
+                blendedRed = Math.Min(baseRed, topRed);
+                break;
+
+            case BlendMode.Max:
+                blendedBlue = Math.Max(baseBlue, topBlue);
+                blendedGreen = Math.Max(baseGreen, topGreen);
+                blendedRed = Math.Max(baseRed, topRed);
+                break;
+
+            default:
+                blendedBlue = topBlue;
+                blendedGreen = topGreen;
+                blendedRed = topRed;
+                break;
+        }
+    }
+
+    private static byte ApplyOpacity(int baseChannel, int blendedChannel, int opacity)
+    {
+        return (byte)(((baseChannel * (255 - opacity)) + (blendedChannel * opacity) + 127) / 255);
+    }
+
+    private sealed class BatchUpdateScope : IDisposable
+    {
+        private LayerManager? _owner;
+
+        public BatchUpdateScope(LayerManager owner)
+        {
+            _owner = owner;
+        }
+
+        public void Dispose()
+        {
+            _owner?.EndBatchUpdate();
+            _owner = null;
+        }
     }
 }
