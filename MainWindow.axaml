@@ -1,0 +1,117 @@
+<Window
+    x:Class="SCOI_Lab_1.MainWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Редактор слоёв изображений"
+    Width="1200"
+    Height="800"
+    MinWidth="920"
+    MinHeight="700"
+    WindowStartupLocation="CenterScreen">
+  <Grid ColumnDefinitions="*,380">
+    <Grid Grid.Column="0" Margin="16">
+      <Border
+          Background="#E5E7EB"
+          BorderBrush="#CBD5E1"
+          BorderThickness="1"
+          CornerRadius="16"
+          Padding="12">
+        <Image
+            x:Name="PreviewImage"
+            Stretch="Uniform" />
+      </Border>
+
+      <TextBlock
+          x:Name="EmptyStateText"
+          Text="Добавьте изображения, чтобы собрать композицию"
+          FontSize="22"
+          FontWeight="SemiBold"
+          Foreground="#475569"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center" />
+    </Grid>
+
+    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="16" Spacing="12">
+        <TextBlock
+            Text="Слои"
+            FontSize="24"
+            FontWeight="Bold" />
+
+        <ListBox
+            x:Name="LayersList"
+            Height="300"
+            SelectionChanged="LayersList_SelectionChanged" />
+
+        <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
+          <Button
+              Grid.Column="0"
+              Content="Добавить"
+              Click="AddButton_Click" />
+          <Button
+              x:Name="RemoveButton"
+              Grid.Column="1"
+              Content="Удалить"
+              Click="RemoveButton_Click" />
+          <Button
+              x:Name="MoveUpButton"
+              Grid.Column="2"
+              Content="Вверх"
+              Click="MoveUpButton_Click" />
+          <Button
+              x:Name="MoveDownButton"
+              Grid.Column="3"
+              Content="Вниз"
+              Click="MoveDownButton_Click" />
+        </Grid>
+
+        <Border
+            x:Name="LayerSettingsCard"
+            Background="#F8FAFC"
+            BorderBrush="#CBD5E1"
+            BorderThickness="1"
+            CornerRadius="12"
+            Padding="12">
+          <StackPanel Spacing="10">
+            <TextBlock
+                Text="Настройки слоя"
+                FontSize="16"
+                FontWeight="SemiBold" />
+            <TextBlock Text="Режим наложения" />
+            <ComboBox
+                x:Name="BlendModeCombo"
+                SelectionChanged="BlendModeCombo_SelectionChanged" />
+
+            <TextBlock Text="Маска" />
+            <ComboBox
+                x:Name="MaskTypeCombo"
+                SelectionChanged="MaskTypeCombo_SelectionChanged" />
+
+            <TextBlock
+                x:Name="OpacityText"
+                Text="Непрозрачность: 100%" />
+            <Slider
+                x:Name="OpacitySlider"
+                Minimum="0"
+                Maximum="100"
+                Value="100"
+                TickFrequency="10"
+                ValueChanged="OpacitySlider_ValueChanged" />
+          </StackPanel>
+        </Border>
+
+        <Button
+            x:Name="GradationButton"
+            Height="40"
+            Content="Градационные преобразования"
+            Click="GradationButton_Click" />
+
+        <Button
+            x:Name="SaveButton"
+            Height="48"
+            Content="Сохранить результат"
+            Click="SaveButton_Click" />
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
+</Window>

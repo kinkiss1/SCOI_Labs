@@ -1,80 +1,96 @@
-using System;
-using System.Drawing;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using DrawingBitmap = System.Drawing.Bitmap;
+using DrawingRectangle = System.Drawing.Rectangle;
 
 namespace SCOI_Lab_1;
 
 public static class GradationHelper
 {
-    public static int[] CalculateHistogram(Bitmap bmp)
+    public static int[] CalculateHistogram(DrawingBitmap bitmap)
     {
-        int[] hist = new int[256];
-        BitmapData data = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-        int bytes = Math.Abs(data.Stride) * bmp.Height;
+        int[] histogram = new int[256];
+        BitmapData data = bitmap.LockBits(
+            new DrawingRectangle(0, 0, bitmap.Width, bitmap.Height),
+            ImageLockMode.ReadOnly,
+            PixelFormat.Format32bppArgb);
+        int bytes = Math.Abs(data.Stride) * bitmap.Height;
         byte[] rgbValues = new byte[bytes];
         Marshal.Copy(data.Scan0, rgbValues, 0, bytes);
-        bmp.UnlockBits(data);
+        bitmap.UnlockBits(data);
 
         for (int i = 0; i < rgbValues.Length; i += 4)
         {
-            byte b = rgbValues[i];
-            byte g = rgbValues[i + 1];
-            byte r = rgbValues[i + 2];
-            
-            int c = (r + g + b) / 3;
-            hist[c]++;
+            byte blue = rgbValues[i];
+            byte green = rgbValues[i + 1];
+            byte red = rgbValues[i + 2];
+
+            histogram[(red + green + blue) / 3]++;
         }
-        return hist;
+
+        return histogram;
     }
 
-    public static Bitmap ApplyLUT(Bitmap bmp, byte[] lut)
+    public static DrawingBitmap ApplyLut(DrawingBitmap bitmap, byte[] lut)
     {
-        Bitmap res = new Bitmap(bmp.Width, bmp.Height, PixelFormat.Format32bppArgb);
-        BitmapData srcData = bmp.LockBits(new Rectangle(0, 0, bmp.Width, bmp.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-        BitmapData dstData = res.LockBits(new Rectangle(0, 0, res.Width, res.Height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
+        DrawingBitmap result = new(bitmap.Width, bitmap.Height, PixelFormat.Format32bppArgb);
+        BitmapData sourceData = bitmap.LockBits(
+            new DrawingRectangle(0, 0, bitmap.Width, bitmap.Height),
+            ImageLockMode.ReadOnly,
+            PixelFormat.Format32bppArgb);
+        BitmapData destinationData = result.LockBits(
+            new DrawingRectangle(0, 0, result.Width, result.Height),
+            ImageLockMode.WriteOnly,
+            PixelFormat.Format32bppArgb);
 
-        int bytes = Math.Abs(srcData.Stride) * bmp.Height;
-        byte[] srcValues = new byte[bytes];
-        byte[] dstValues = new byte[bytes];
-        Marshal.Copy(srcData.Scan0, srcValues, 0, bytes);
+        int bytes = Math.Abs(sourceData.Stride) * bitmap.Height;
+        byte[] sourceValues = new byte[bytes];
+        byte[] destinationValues = new byte[bytes];
+        Marshal.Copy(sourceData.Scan0, sourceValues, 0, bytes);
 
         for (int i = 0; i < bytes; i += 4)
         {
-            dstValues[i] = lut[srcValues[i]];
-            dstValues[i + 1] = lut[srcValues[i + 1]];
-            dstValues[i + 2] = lut[srcValues[i + 2]];
-            dstValues[i + 3] = srcValues[i + 3];
+            destinationValues[i] = lut[sourceValues[i]];
+            destinationValues[i + 1] = lut[sourceValues[i + 1]];
+            destinationValues[i + 2] = lut[sourceValues[i + 2]];
+            destinationValues[i + 3] = sourceValues[i + 3];
         }
 
-        Marshal.Copy(dstValues, 0, dstData.Scan0, bytes);
-        bmp.UnlockBits(srcData);
-        res.UnlockBits(dstData);
+        Marshal.Copy(destinationValues, 0, destinationData.Scan0, bytes);
+        bitmap.UnlockBits(sourceData);
+        result.UnlockBits(destinationData);
 
-        return res;
+        return result;
     }
 
-    public static Bitmap DrawHistogram(int[] hist, int width, int height)
+    public static DrawingBitmap DrawHistogram(int[] histogram, int width, int height)
     {
-        Bitmap bmp = new Bitmap(width, height);
-        using Graphics g = Graphics.FromImage(bmp);
-        g.Clear(Color.White);
+        DrawingBitmap bitmap = new(width, height);
 
-        int max = 0;
-        for (int i = 0; i < 256; i++) if (hist[i] > max) max = hist[i];
+        using var graphics = System.Drawing.Graphics.FromImage(bitmap);
+        graphics.Clear(System.Drawing.Color.White);
 
-        if (max == 0) return bmp;
-
-        double k = (double)(height - 1) / max;
-        using Pen pen = new Pen(Color.FromArgb(100, 100, 100));
-
-        for (int i = 0; i < 256; i++)
+        int maxValue = 0;
+        for (int i = 0; i < histogram.Length; i++)
         {
-            int x = (int)(i * (width - 1) / 255.0);
-            int y = (int)(height - 1 - hist[i] * k);
-            g.DrawLine(pen, x, height - 1, x, y);
+            maxValue = Math.Max(maxValue, histogram[i]);
         }
 
-        return bmp;
+        if (maxValue == 0)
+        {
+            return bitmap;
+        }
+
+        double scale = (double)(height - 1) / maxValue;
+        using var pen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(100, 100, 100));
+
+        for (int i = 0; i < histogram.Length; i++)
+        {
+            int x = (int)(i * (width - 1) / 255.0);
+            int y = (int)(height - 1 - (histogram[i] * scale));
+            graphics.DrawLine(pen, x, height - 1, x, y);
+        }
+
+        return bitmap;
     }
 }

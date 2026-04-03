@@ -1,0 +1,133 @@
+<Window
+    x:Class="SCOI_Lab_1.GradationWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:SCOI_Lab_1"
+    Title="Градационные преобразования"
+    Width="1100"
+    Height="760"
+    MinWidth="900"
+    MinHeight="620"
+    WindowStartupLocation="CenterOwner">
+  <Grid
+      Margin="16"
+      ColumnDefinitions="*,*"
+      RowDefinitions="Auto,*,Auto,220"
+      ColumnSpacing="16"
+      RowSpacing="12">
+    <TextBlock
+        Grid.Row="0"
+        Grid.Column="0"
+        Text="Оригинал"
+        FontSize="18"
+        FontWeight="SemiBold" />
+    <TextBlock
+        Grid.Row="0"
+        Grid.Column="1"
+        Text="Предпросмотр"
+        FontSize="18"
+        FontWeight="SemiBold" />
+
+    <Border
+        Grid.Row="1"
+        Grid.Column="0"
+        Background="#F3F4F6"
+        BorderBrush="#CBD5E1"
+        BorderThickness="1"
+        CornerRadius="12"
+        Padding="12">
+      <Image
+          x:Name="OriginalImage"
+          Stretch="Uniform" />
+    </Border>
+
+    <Border
+        Grid.Row="1"
+        Grid.Column="1"
+        Background="#F3F4F6"
+        BorderBrush="#CBD5E1"
+        BorderThickness="1"
+        CornerRadius="12"
+        Padding="12">
+      <Image
+          x:Name="PreviewImage"
+          Stretch="Uniform" />
+    </Border>
+
+    <Border
+        Grid.Row="2"
+        Grid.Column="0"
+        Background="White"
+        BorderBrush="#CBD5E1"
+        BorderThickness="1"
+        CornerRadius="12"
+        Padding="8">
+      <Image
+          x:Name="OriginalHistogramImage"
+          Height="120"
+          Stretch="Fill" />
+    </Border>
+
+    <Border
+        Grid.Row="2"
+        Grid.Column="1"
+        Background="White"
+        BorderBrush="#CBD5E1"
+        BorderThickness="1"
+        CornerRadius="12"
+        Padding="8">
+      <Image
+          x:Name="PreviewHistogramImage"
+          Height="120"
+          Stretch="Fill" />
+    </Border>
+
+    <Border
+        Grid.Row="3"
+        Grid.Column="0"
+        Background="White"
+        BorderBrush="#CBD5E1"
+        BorderThickness="1"
+        CornerRadius="12"
+        Padding="12">
+      <local:GradationCurveEditor x:Name="CurveEditor" />
+    </Border>
+
+    <Border
+        Grid.Row="3"
+        Grid.Column="1"
+        Background="#F8FAFC"
+        BorderBrush="#CBD5E1"
+        BorderThickness="1"
+        CornerRadius="12"
+        Padding="24">
+      <StackPanel
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          Spacing="12">
+        <TextBlock
+            Text="Управление кривой"
+            FontSize="18"
+            FontWeight="SemiBold"
+            HorizontalAlignment="Center" />
+        <TextBlock
+            Width="280"
+            Text="Левая кнопка добавляет и двигает точки, правая удаляет промежуточные точки."
+            TextAlignment="Center"
+            TextWrapping="Wrap" />
+        <Button
+            Width="220"
+            Content="Применить"
+            Click="ApplyButton_Click" />
+        <Button
+            Width="220"
+            Content="Сбросить"
+            Click="ResetButton_Click" />
+        <Button
+            Width="220"
+            Content="Отмена"
+            Click="CancelButton_Click" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>
