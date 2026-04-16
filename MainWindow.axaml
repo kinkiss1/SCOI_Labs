@@ -123,6 +123,12 @@
             Height="48"
             Content="Сохранить результат"
             Click="SaveButton_Click" />
+        <Button
+            x:Name="FrequencyFilteringButton"
+            Height="40"
+            Content="Частотная фильтрация"
+            Click="FrequencyFilteringButton_Click" />
+
       </StackPanel>
     </ScrollViewer>
   </Grid>

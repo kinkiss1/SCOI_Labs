@@ -1,0 +1,126 @@
+<Window
+    x:Class="SCOI_Lab_1.FrequencyFilteringWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Частотная фильтрация"
+    Width="1480"
+    Height="920"
+    MinWidth="1180"
+    MinHeight="760"
+    WindowStartupLocation="CenterOwner">
+  <Grid
+      Margin="16"
+      ColumnDefinitions="*,420"
+      RowDefinitions="Auto,*"
+      ColumnSpacing="16"
+      RowSpacing="12">
+    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+      <TextBlock Text="Частотная обработка" FontSize="24" FontWeight="Bold" />
+      <TextBlock Foreground="#475569" Text="Исходное изображение, спектр Фурье, маска фильтра и результат." />
+    </StackPanel>
+
+    <Grid
+        Grid.Row="1"
+        Grid.Column="0"
+        ColumnDefinitions="*,*"
+        RowDefinitions="*,*"
+        ColumnSpacing="16"
+        RowSpacing="16">
+      <Border Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="12" Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Исходное изображение" FontSize="16" FontWeight="SemiBold" />
+          <Image x:Name="OriginalImage" Height="320" Stretch="Uniform" />
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Column="1" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="12" Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Спектр Фурье (log |F|)" FontSize="16" FontWeight="SemiBold" />
+          <Image x:Name="SpectrumImage" Height="320" Stretch="Uniform" />
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="12" Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Визуализация фильтра" FontSize="16" FontWeight="SemiBold" />
+          <Image x:Name="MaskImage" Height="320" Stretch="Uniform" />
+        </StackPanel>
+      </Border>
+
+      <Border Grid.Row="1" Grid.Column="1" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="12" Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Результат частотной обработки" FontSize="16" FontWeight="SemiBold" />
+          <Image x:Name="ResultImage" Height="320" Stretch="Uniform" />
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <Border
+        Grid.Row="0"
+        Grid.RowSpan="2"
+        Grid.Column="1"
+        Background="#F8FAFC"
+        BorderBrush="#CBD5E1"
+        BorderThickness="1"
+        CornerRadius="12"
+        Padding="16">
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Параметры" FontSize="20" FontWeight="Bold" />
+          <TextBlock Foreground="#475569" TextWrapping="Wrap" Text="Для устойчивой работы обрабатывайте изображения не больше 512x512. При необходимости программа дополняет размер до ближайшей степени двойки только внутри вычислений." />
+
+          <TextBlock Text="Тип фильтра" />
+          <ComboBox x:Name="FilterTypeComboBox" SelectionChanged="FilterTypeComboBox_SelectionChanged" />
+
+          <TextBlock x:Name="FilterDescriptionText" Foreground="#334155" TextWrapping="Wrap" />
+
+          <StackPanel x:Name="RadiusPanel" Spacing="6">
+            <TextBlock Text="Радиус" />
+            <TextBox x:Name="RadiusTextBox" Text="24" />
+          </StackPanel>
+
+          <Border x:Name="BandPanel" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="10" Padding="10">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Полосовой диапазон" FontWeight="SemiBold" />
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="Внутренний радиус" />
+                <TextBox Grid.Column="1" x:Name="InnerRadiusTextBox" Text="18" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="Внешний радиус" />
+                <TextBox Grid.Column="1" x:Name="OuterRadiusTextBox" Text="48" />
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border x:Name="NotchPanel" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="10" Padding="10">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Узкополосный фильтр" FontWeight="SemiBold" />
+              <TextBlock Foreground="#475569" TextWrapping="Wrap" Text="Используются две симметричные эллиптические области относительно центра спектра. Это удобно для удаления периодического шума." />
+              <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="8">
+                <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="Смещение X" />
+                <TextBox Grid.Column="1" x:Name="NotchOffsetXTextBox" Text="64" />
+                <TextBlock Grid.Column="2" VerticalAlignment="Center" Text="Смещение Y" />
+                <TextBox Grid.Column="3" x:Name="NotchOffsetYTextBox" Text="0" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="8">
+                <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="Радиус X" />
+                <TextBox Grid.Column="1" x:Name="NotchRadiusXTextBox" Text="10" />
+                <TextBlock Grid.Column="2" VerticalAlignment="Center" Text="Радиус Y" />
+                <TextBox Grid.Column="3" x:Name="NotchRadiusYTextBox" Text="10" />
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <TextBlock x:Name="StatusText" Foreground="#475569" Text="Готово." TextWrapping="Wrap" />
+          <TextBlock x:Name="TimingText" Foreground="#334155" Text="Время обработки: -" />
+          <TextBlock x:Name="WorkingSizeText" Foreground="#334155" Text="Рабочий размер FFT: -" />
+
+          <Button x:Name="PreviewButton" Height="40" Content="Построить предпросмотр" Click="PreviewButton_Click" />
+          <Button x:Name="ApplyButton" Height="40" Content="Применить к слою" Click="ApplyButton_Click" />
+          <Button Height="40" Content="Отмена" Click="CancelButton_Click" />
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+  </Grid>
+</Window>

@@ -1,8 +1,6 @@
 using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using DrawingBitmap = System.Drawing.Bitmap;
-using DrawingRectangle = System.Drawing.Rectangle;
 
 namespace SCOI_Lab_1;
 
@@ -25,7 +23,7 @@ public static class SpatialFilteringHelper
 {
     public static DrawingBitmap Apply(DrawingBitmap source, SpatialFilterParameters parameters)
     {
-        byte[] sourceBytes = ReadPixelBytes(source, out int width, out int height, out int sourceStride);
+        byte[] sourceBytes = BitmapUtilities.ReadPixelBytes(source, out int width, out int height, out int sourceStride);
         byte[] resultBytes = parameters.Mode switch
         {
             SpatialFilterMode.Linear => ApplyLinear(sourceBytes, width, height, sourceStride, parameters.Kernel, parameters.NormalizeKernel),
@@ -33,7 +31,7 @@ public static class SpatialFilteringHelper
             _ => ApplyLinear(sourceBytes, width, height, sourceStride, parameters.Kernel, parameters.NormalizeKernel)
         };
 
-        return CreateBitmapFromBytes(resultBytes, width, height, sourceStride);
+        return BitmapUtilities.CreateBitmapFromBytes(resultBytes, width, height, sourceStride);
     }
 
     public static double[,] GenerateGaussianKernel(int width, int height, double sigma)
@@ -63,57 +61,6 @@ public static class SpatialFilteringHelper
         }
 
         return kernel;
-    }
-
-    private static byte[] ReadPixelBytes(DrawingBitmap source, out int width, out int height, out int stride)
-    {
-        width = source.Width;
-        height = source.Height;
-        DrawingRectangle bounds = new(0, 0, width, height);
-        BitmapData data = source.LockBits(bounds, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-
-        try
-        {
-            stride = Math.Abs(data.Stride);
-            byte[] bytes = new byte[stride * height];
-            Marshal.Copy(data.Scan0, bytes, 0, bytes.Length);
-            return bytes;
-        }
-        finally
-        {
-            source.UnlockBits(data);
-        }
-    }
-
-    private static DrawingBitmap CreateBitmapFromBytes(byte[] bytes, int width, int height, int sourceStride)
-    {
-        DrawingBitmap result = new(width, height, PixelFormat.Format32bppArgb);
-        DrawingRectangle bounds = new(0, 0, width, height);
-        BitmapData data = result.LockBits(bounds, ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
-
-        try
-        {
-            int targetStride = Math.Abs(data.Stride);
-            if (targetStride == sourceStride)
-            {
-                Marshal.Copy(bytes, 0, data.Scan0, bytes.Length);
-                return result;
-            }
-
-            byte[] adjusted = new byte[targetStride * height];
-            int rowBytes = Math.Min(sourceStride, targetStride);
-            for (int y = 0; y < height; y++)
-            {
-                Buffer.BlockCopy(bytes, y * sourceStride, adjusted, y * targetStride, rowBytes);
-            }
-
-            Marshal.Copy(adjusted, 0, data.Scan0, adjusted.Length);
-            return result;
-        }
-        finally
-        {
-            result.UnlockBits(data);
-        }
     }
 
     private static byte[] ApplyLinear(byte[] sourceBytes, int width, int height, int stride, double[,] kernel, bool normalizeKernel)
