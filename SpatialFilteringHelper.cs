@@ -1,5 +1,6 @@
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using DrawingBitmap = System.Drawing.Bitmap;
 using DrawingRectangle = System.Drawing.Rectangle;
 
@@ -178,114 +179,109 @@ public static class SpatialFilteringHelper
 
     private static byte[] ApplyMedian(byte[] sourceBytes, int width, int height, int stride, int windowWidth, int windowHeight)
     {
-        int normalizedWidth = NormalizeOddSize(windowWidth);
-        int normalizedHeight = NormalizeOddSize(windowHeight);
-        int radiusX = normalizedWidth / 2;
-        int radiusY = normalizedHeight / 2;
-        int windowPixelCount = normalizedWidth * normalizedHeight;
-        int medianIndex = windowPixelCount / 2;
-        byte[] blueWindow = new byte[windowPixelCount];
-        byte[] greenWindow = new byte[windowPixelCount];
-        byte[] redWindow = new byte[windowPixelCount];
+        int normalizedWidth = NormalizeOddSize(Math.Clamp(windowWidth, 1, 255));
+        int normalizedHeight = NormalizeOddSize(Math.Clamp(windowHeight, 1, 255));
+        if (normalizedWidth == 1 && normalizedHeight == 1)
+        {
+            return sourceBytes.ToArray();
+        }
+
+        int[] xOffsets = BuildOffsets(normalizedWidth);
+        int[] yOffsets = BuildOffsets(normalizedHeight);
+        int[][] xLut = BuildMirrorLut(width, xOffsets);
+        int[][] yLut = BuildMirrorLut(height, yOffsets);
+        int medianIndex = (normalizedWidth * normalizedHeight) >> 1;
         byte[] result = new byte[sourceBytes.Length];
 
-        for (int y = 0; y < height; y++)
-        {
-            int destinationRowStart = y * stride;
-
-            for (int x = 0; x < width; x++)
+        Parallel.For(
+            0,
+            height,
+            () => (new ushort[256], new ushort[256], new ushort[256]),
+            (y, _, histograms) =>
             {
-                int windowIndex = 0;
+                ushort[] blueHistogram = histograms.Item1;
+                ushort[] greenHistogram = histograms.Item2;
+                ushort[] redHistogram = histograms.Item3;
+                int destinationRowStart = y * stride;
 
-                for (int offsetY = -radiusY; offsetY <= radiusY; offsetY++)
+                for (int x = 0; x < width; x++)
                 {
-                    int sampleY = MirrorIndex(y + offsetY, height);
-                    int sampleRowStart = sampleY * stride;
+                    Array.Clear(blueHistogram, 0, blueHistogram.Length);
+                    Array.Clear(greenHistogram, 0, greenHistogram.Length);
+                    Array.Clear(redHistogram, 0, redHistogram.Length);
 
-                    for (int offsetX = -radiusX; offsetX <= radiusX; offsetX++)
+                    for (int ky = 0; ky < normalizedHeight; ky++)
                     {
-                        int sampleX = MirrorIndex(x + offsetX, width);
-                        int sourceIndex = sampleRowStart + (sampleX * 4);
+                        int sampleY = yLut[ky][y];
+                        int sampleRowStart = sampleY * stride;
 
-                        blueWindow[windowIndex] = sourceBytes[sourceIndex];
-                        greenWindow[windowIndex] = sourceBytes[sourceIndex + 1];
-                        redWindow[windowIndex] = sourceBytes[sourceIndex + 2];
-                        windowIndex++;
+                        for (int kx = 0; kx < normalizedWidth; kx++)
+                        {
+                            int sampleX = xLut[kx][x];
+                            int sourceIndex = sampleRowStart + (sampleX * 4);
+                            blueHistogram[sourceBytes[sourceIndex]]++;
+                            greenHistogram[sourceBytes[sourceIndex + 1]]++;
+                            redHistogram[sourceBytes[sourceIndex + 2]]++;
+                        }
                     }
+
+                    int destinationIndex = destinationRowStart + (x * 4);
+                    result[destinationIndex] = FindMedianFromHistogram(blueHistogram, medianIndex);
+                    result[destinationIndex + 1] = FindMedianFromHistogram(greenHistogram, medianIndex);
+                    result[destinationIndex + 2] = FindMedianFromHistogram(redHistogram, medianIndex);
+                    result[destinationIndex + 3] = sourceBytes[destinationIndex + 3];
                 }
 
-                int destinationIndex = destinationRowStart + (x * 4);
-                int sourceCenterIndex = destinationIndex;
-                result[destinationIndex] = QuickSelect(blueWindow, medianIndex, windowPixelCount);
-                result[destinationIndex + 1] = QuickSelect(greenWindow, medianIndex, windowPixelCount);
-                result[destinationIndex + 2] = QuickSelect(redWindow, medianIndex, windowPixelCount);
-                result[destinationIndex + 3] = sourceBytes[sourceCenterIndex + 3];
-            }
-        }
+                return histograms;
+            },
+            _ => { });
 
         return result;
     }
 
-    private static byte QuickSelect(byte[] values, int targetIndex, int length)
+    private static byte FindMedianFromHistogram(ushort[] histogram, int medianIndex)
     {
-        int left = 0;
-        int right = length - 1;
-
-        while (true)
+        int count = 0;
+        for (int i = 0; i < histogram.Length; i++)
         {
-            if (left == right)
+            count += histogram[i];
+            if (count > medianIndex)
             {
-                return values[left];
-            }
-
-            int pivotIndex = left + ((right - left) / 2);
-            pivotIndex = Partition(values, left, right, pivotIndex);
-
-            if (targetIndex == pivotIndex)
-            {
-                return values[targetIndex];
-            }
-
-            if (targetIndex < pivotIndex)
-            {
-                right = pivotIndex - 1;
-            }
-            else
-            {
-                left = pivotIndex + 1;
+                return (byte)i;
             }
         }
+
+        return 0;
     }
 
-    private static int Partition(byte[] values, int left, int right, int pivotIndex)
+    private static int[] BuildOffsets(int size)
     {
-        byte pivotValue = values[pivotIndex];
-        Swap(values, pivotIndex, right);
-        int storeIndex = left;
-
-        for (int i = left; i < right; i++)
+        int radius = size / 2;
+        int[] offsets = new int[size];
+        for (int i = 0; i < size; i++)
         {
-            if (values[i] < pivotValue)
-            {
-                Swap(values, storeIndex, i);
-                storeIndex++;
-            }
+            offsets[i] = i - radius;
         }
 
-        Swap(values, right, storeIndex);
-        return storeIndex;
+        return offsets;
     }
 
-    private static void Swap(byte[] values, int left, int right)
+    private static int[][] BuildMirrorLut(int dimension, int[] offsets)
     {
-        if (left == right)
+        int[][] lut = new int[offsets.Length][];
+        for (int i = 0; i < offsets.Length; i++)
         {
-            return;
+            int offset = offsets[i];
+            int[] sourcePositions = new int[dimension];
+            for (int position = 0; position < dimension; position++)
+            {
+                sourcePositions[position] = MirrorIndex(position + offset, dimension);
+            }
+
+            lut[i] = sourcePositions;
         }
 
-        byte temp = values[left];
-        values[left] = values[right];
-        values[right] = temp;
+        return lut;
     }
 
     private static int MirrorIndex(int index, int size)

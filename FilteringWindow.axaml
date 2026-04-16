@@ -11,7 +11,7 @@
   <Grid
       Margin="16"
       ColumnDefinitions="*,380"
-      RowDefinitions="Auto,*,Auto"
+      RowDefinitions="Auto,*"
       ColumnSpacing="16"
       RowSpacing="12">
     <TextBlock
@@ -146,6 +146,10 @@
             x:Name="StatusText"
             Foreground="#475569"
             Text="Готово." />
+        <TextBlock
+            x:Name="TimingText"
+            Foreground="#334155"
+            Text="Время обработки: —" />
 
         <Button
             x:Name="PreviewButton"
@@ -164,11 +168,5 @@
       </StackPanel>
     </Border>
 
-    <TextBlock
-        Grid.Row="2"
-        Grid.Column="0"
-        Foreground="#64748B"
-        Text="Режим на 50 баллов: прямоугольные нечетные ядра, зеркальная обработка границ, одно чтение исходных пикселей и медиана через Quickselect."
-        TextWrapping="Wrap" />
   </Grid>
 </Window>

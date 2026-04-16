@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
@@ -30,6 +31,7 @@ public partial class FilteringWindow : Window
     private readonly TextBox _medianWidthTextBox;
     private readonly TextBox _medianHeightTextBox;
     private readonly TextBlock _statusText;
+    private readonly TextBlock _timingText;
     private readonly Button _previewButton;
     private readonly Button _applyButton;
 
@@ -42,6 +44,7 @@ public partial class FilteringWindow : Window
     private AvaloniaBitmap? _originalAvaloniaBitmap;
     private AvaloniaBitmap? _previewAvaloniaBitmap;
     private SpatialFilterParameters? _lastPreviewParameters;
+    private double? _lastElapsedMilliseconds;
 
     public FilteringWindow()
         : this(new DrawingBitmap(1, 1))
@@ -73,6 +76,7 @@ public partial class FilteringWindow : Window
         _medianWidthTextBox = RequireControl<TextBox>("MedianWidthTextBox");
         _medianHeightTextBox = RequireControl<TextBox>("MedianHeightTextBox");
         _statusText = RequireControl<TextBlock>("StatusText");
+        _timingText = RequireControl<TextBlock>("TimingText");
         _previewButton = RequireControl<Button>("PreviewButton");
         _applyButton = RequireControl<Button>("ApplyButton");
 
@@ -190,7 +194,11 @@ public partial class FilteringWindow : Window
         SetBusyState(true, "Выполняется обработка...");
         try
         {
+            Stopwatch stopwatch = Stopwatch.StartNew();
             DrawingBitmap result = await Task.Run(() => SpatialFilteringHelper.Apply(_originalImage, parameters));
+            stopwatch.Stop();
+            UpdateTimingText(stopwatch.Elapsed.TotalMilliseconds);
+
             _previewImage.Dispose();
             _previewImage = result;
             _lastPreviewParameters = CloneParameters(parameters);
@@ -507,5 +515,24 @@ public partial class FilteringWindow : Window
         {
             return Label;
         }
+    }
+
+    private void UpdateTimingText(double elapsedMilliseconds)
+    {
+        string current = elapsedMilliseconds.ToString("0.##", CultureInfo.InvariantCulture);
+        if (_lastElapsedMilliseconds is null)
+        {
+            _timingText.Text = $"Время обработки: {current} мс";
+            _lastElapsedMilliseconds = elapsedMilliseconds;
+            return;
+        }
+
+        double previous = _lastElapsedMilliseconds.Value;
+        double deltaPercent = previous > 0.000001
+            ? ((elapsedMilliseconds - previous) / previous) * 100.0
+            : 0;
+        string sign = deltaPercent >= 0 ? "+" : string.Empty;
+        _timingText.Text = $"Время обработки: {current} мс ({sign}{deltaPercent:0.##}% к предыдущему запуску)";
+        _lastElapsedMilliseconds = elapsedMilliseconds;
     }
 }
