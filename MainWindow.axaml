@@ -113,6 +113,12 @@
             Click="BinarizationButton_Click" />
 
         <Button
+            x:Name="FilteringButton"
+            Height="40"
+            Content="Пространственная фильтрация"
+            Click="FilteringButton_Click" />
+
+        <Button
             x:Name="SaveButton"
             Height="48"
             Content="Сохранить результат"

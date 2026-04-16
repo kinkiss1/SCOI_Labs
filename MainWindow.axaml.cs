@@ -64,6 +64,7 @@ public partial class MainWindow : Window
     private readonly Border _layerSettingsCard;
     private readonly Button _gradationButton;
     private readonly Button _binarizationButton;
+    private readonly Button _filteringButton;
     private readonly Button _saveButton;
 
     private AvaloniaBitmap? _previewBitmap;
@@ -87,6 +88,7 @@ public partial class MainWindow : Window
         _layerSettingsCard = RequireControl<Border>("LayerSettingsCard");
         _gradationButton = RequireControl<Button>("GradationButton");
         _binarizationButton = RequireControl<Button>("BinarizationButton");
+        _filteringButton = RequireControl<Button>("FilteringButton");
         _saveButton = RequireControl<Button>("SaveButton");
 
         _blendModeCombo.ItemsSource = _blendModeOptions;
@@ -316,6 +318,30 @@ public partial class MainWindow : Window
         UpdatePreview();
     }
 
+    private async void FilteringButton_Click(object? sender, RoutedEventArgs e)
+    {
+        ImageLayer? layer = GetSelectedLayer();
+        if (layer is null)
+        {
+            return;
+        }
+
+        int? selectedIndex = GetSelectedModelIndex();
+        FilteringWindow dialog = new(layer.Image);
+        DrawingBitmap? updatedImage = await dialog.ShowDialog<DrawingBitmap?>(this);
+        if (updatedImage is null)
+        {
+            return;
+        }
+
+        DrawingBitmap previousImage = layer.Image;
+        layer.Image = updatedImage;
+        previousImage.Dispose();
+
+        RefreshLayersList(selectedIndex);
+        UpdatePreview();
+    }
+
     private async void SaveButton_Click(object? sender, RoutedEventArgs e)
     {
         if (_compositeResult is null)
@@ -445,6 +471,7 @@ public partial class MainWindow : Window
         _moveDownButton.IsEnabled = hasSelection && selectedIndex > 0;
         _gradationButton.IsEnabled = hasSelection;
         _binarizationButton.IsEnabled = hasSelection;
+        _filteringButton.IsEnabled = hasSelection;
         _saveButton.IsEnabled = _compositeResult is not null;
     }
 

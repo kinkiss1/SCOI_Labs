@@ -1,0 +1,174 @@
+<Window
+    x:Class="SCOI_Lab_1.FilteringWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Пространственная фильтрация"
+    Width="1180"
+    Height="840"
+    MinWidth="980"
+    MinHeight="720"
+    WindowStartupLocation="CenterOwner">
+  <Grid
+      Margin="16"
+      ColumnDefinitions="*,380"
+      RowDefinitions="Auto,*,Auto"
+      ColumnSpacing="16"
+      RowSpacing="12">
+    <TextBlock
+        Grid.Row="0"
+        Grid.Column="0"
+        Text="Исходное изображение и предпросмотр"
+        FontSize="22"
+        FontWeight="Bold" />
+
+    <Grid
+        Grid.Row="1"
+        Grid.Column="0"
+        ColumnDefinitions="*,*"
+        ColumnSpacing="16">
+      <Border
+          Background="#F3F4F6"
+          BorderBrush="#CBD5E1"
+          BorderThickness="1"
+          CornerRadius="12"
+          Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Исходное изображение" FontSize="16" FontWeight="SemiBold" />
+          <Image
+              x:Name="OriginalImage"
+              Height="630"
+              Stretch="Uniform" />
+        </StackPanel>
+      </Border>
+
+      <Border
+          Grid.Column="1"
+          Background="#F8FAFC"
+          BorderBrush="#CBD5E1"
+          BorderThickness="1"
+          CornerRadius="12"
+          Padding="12">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Предпросмотр" FontSize="16" FontWeight="SemiBold" />
+          <Image
+              x:Name="PreviewImage"
+              Height="630"
+              Stretch="Uniform" />
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <Border
+        Grid.Row="0"
+        Grid.RowSpan="3"
+        Grid.Column="1"
+        Background="#F8FAFC"
+        BorderBrush="#CBD5E1"
+        BorderThickness="1"
+        CornerRadius="12"
+        Padding="16">
+      <StackPanel Spacing="10">
+        <TextBlock
+            Text="Параметры"
+            FontSize="20"
+            FontWeight="Bold" />
+
+        <TextBlock Text="Тип фильтра" />
+        <ComboBox
+            x:Name="FilterTypeComboBox"
+            SelectionChanged="FilterTypeComboBox_SelectionChanged" />
+
+        <TextBlock
+            x:Name="FilterDescriptionText"
+            Foreground="#334155"
+            TextWrapping="Wrap" />
+
+        <TextBlock
+            x:Name="KernelLabel"
+            Text="Ядро (строки разделяются переносом строки)" />
+        <TextBox
+            x:Name="KernelTextBox"
+            Height="200"
+            AcceptsReturn="True"
+            TextWrapping="Wrap"
+            VerticalContentAlignment="Top" />
+        <CheckBox
+            x:Name="NormalizeKernelCheckBox"
+            Content="Нормализовать ядро по сумме"
+            IsChecked="True" />
+
+        <Border
+            x:Name="GaussianCard"
+            Background="White"
+            BorderBrush="#E2E8F0"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="10">
+          <StackPanel Spacing="8">
+            <TextBlock Text="Генератор ядра Гаусса" FontWeight="SemiBold" />
+            <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="8">
+              <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="Ширина" />
+              <TextBox Grid.Column="1" x:Name="GaussianWidthTextBox" Text="13" />
+              <TextBlock Grid.Column="2" VerticalAlignment="Center" Text="Высота" />
+              <TextBox Grid.Column="3" x:Name="GaussianHeightTextBox" Text="13" />
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+              <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="Sigma" />
+              <TextBox Grid.Column="1" x:Name="GaussianSigmaTextBox" Text="3" />
+            </Grid>
+            <Button
+                x:Name="GenerateGaussianButton"
+                Height="34"
+                Content="Сгенерировать ядро Гаусса"
+                Click="GenerateGaussianButton_Click" />
+            <Button
+                x:Name="UseLabPresetButton"
+                Height="34"
+                Content="Использовать пресет 13x13, sigma=3"
+                Click="UseLabPresetButton_Click" />
+          </StackPanel>
+        </Border>
+
+        <TextBlock
+            x:Name="MedianWindowLabel"
+            Text="Размер окна медианы (только нечетные)" />
+        <Grid
+            x:Name="MedianWindowPanel"
+            ColumnDefinitions="Auto,*,Auto,*"
+            ColumnSpacing="8">
+          <TextBlock Grid.Column="0" VerticalAlignment="Center" Text="Ширина" />
+          <TextBox Grid.Column="1" x:Name="MedianWidthTextBox" Text="3" />
+          <TextBlock Grid.Column="2" VerticalAlignment="Center" Text="Высота" />
+          <TextBox Grid.Column="3" x:Name="MedianHeightTextBox" Text="3" />
+        </Grid>
+
+        <TextBlock
+            x:Name="StatusText"
+            Foreground="#475569"
+            Text="Готово." />
+
+        <Button
+            x:Name="PreviewButton"
+            Height="40"
+            Content="Построить предпросмотр"
+            Click="PreviewButton_Click" />
+        <Button
+            x:Name="ApplyButton"
+            Height="40"
+            Content="Применить к слою"
+            Click="ApplyButton_Click" />
+        <Button
+            Height="40"
+            Content="Отмена"
+            Click="CancelButton_Click" />
+      </StackPanel>
+    </Border>
+
+    <TextBlock
+        Grid.Row="2"
+        Grid.Column="0"
+        Foreground="#64748B"
+        Text="Режим на 50 баллов: прямоугольные нечетные ядра, зеркальная обработка границ, одно чтение исходных пикселей и медиана через Quickselect."
+        TextWrapping="Wrap" />
+  </Grid>
+</Window>
